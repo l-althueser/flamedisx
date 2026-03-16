@@ -33,6 +33,7 @@ class Block:
     bonus_dimensions: ty.Tuple[ty.Tuple[str, bool]] = tuple()
 
     #: inner_dimensions which take non-integer values
+    # inner_dimensions: ty.Tuple[str] = tuple()
     non_integer_dimensions: ty.Tuple[str] = tuple()
 
     #: Columns that we don't want to include in the tensor of data columns
@@ -154,21 +155,46 @@ class Block:
                           <= d[f'{dim}_max'].values), \
                 f"_annotate of {self} set misordered bounds"
 
-    def annotate_special(self, d: pd.DataFrame):
-        """Will be called after annotate for any blocks which choose to implement it.
-        """
-        return_value = self._annotate_special(d)
-        assert isinstance(return_value, bool), f"_annotate_special of {self} should return a bool"
+#    def annotate_special(self, d: pd.DataFrame):
+#        """Will be called after annotate for any blocks which choose to implement it.
+#        """
+#        return_value = self._annotate_special(d)
+#        assert isinstance(return_value, bool), f"_annotate_special of {self} should return a bool"
 
+#        if return_value is True:
+#            for dim in self.dimensions:
+#                for bound in ('min', 'max'):
+#                    colname = f'{dim}_{bound}'
+#                    assert colname in d.columns, \
+#                        f" must set {colname}"
+#                assert np.all(d[f'{dim}_min'].values
+#                              <= d[f'{dim}_max'].values), \
+#                    f"_annotate_special of {self} set misordered bounds"
+
+    def annotate_special(self, d):
+        return_value = self._annotate_special(d)
         if return_value is True:
-            for dim in self.dimensions:
+            for dim in self.dimensions: #+ self.non_integer_dimensions + self.inner_dimensions + self.bonus_dimensions + self.source.final_dimensions:
                 for bound in ('min', 'max'):
                     colname = f'{dim}_{bound}'
                     assert colname in d.columns, \
                         f" must set {colname}"
-                assert np.all(d[f'{dim}_min'].values
-                              <= d[f'{dim}_max'].values), \
-                    f"_annotate_special of {self} set misordered bounds"
+                try:
+                    assert np.all(d[f'{dim}_min'].values
+                                <= d[f'{dim}_max'].values), \
+                        f"_annotate_special of {self} set misordered bounds"
+                except AssertionError as e:
+                    # Diagnose: welche Zeilen/Beispiele sind betroffen?
+                    bad_idx = np.where(d[f'{dim}_min'].values > d[f'{dim}_max'].values)[0]
+                    examples = []
+                    for i in bad_idx[:10]:
+                        examples.append((int(i),
+                                        float(d.iloc[i][f'{dim}_min']),
+                                        float(d.iloc[i][f'{dim}_max'])))
+                    raise AssertionError(
+                        f"_annotate_special of {self} set misordered bounds for dimension '{dim}'. "
+                        f"Count offending rows: {len(bad_idx)}. Examples (row,min,max): {examples}"
+                    ) from e
 
     def check_data(self):
         pass

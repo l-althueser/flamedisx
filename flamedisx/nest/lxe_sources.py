@@ -20,8 +20,6 @@ XENON_REF_DENSITY = 2.90
 
 class nestSource(fd.BlockModelSource):
     def __init__(self, *args, detector='default', **kwargs):
-        assert detector in ('default',)
-
         assert os.path.exists(os.path.join(
             os.path.dirname(__file__), 'config/', detector + '.ini'))
 
@@ -428,9 +426,9 @@ class nestNRSource(nestSource):
         recomb_p = args[2]
         ni = args[3]
 
-        nr_free_c = 0.1
-        nr_free_d = 0.5
-        nr_free_e = 0.19
+        nr_free_c = tf.cast(0.1, fd.float_type())
+        nr_free_d = tf.cast(0.5, fd.float_type())
+        nr_free_e = tf.cast(0.19, fd.float_type())
 
         elec_frac = nel_mean / nq_mean
 
@@ -509,4 +507,9 @@ class nestSpatialRateNRSource(nestNRSource):
 
 @export
 class nestWIMPSource(nestNRSource):
+    def __init__(self, *args, mw=None, **kwargs):
+        if mw is not None:
+            self.mw = mw
+        super().__init__(*args, **kwargs)
+
     model_blocks = (fd_nest.WIMPEnergySpectrum,) + nestNRSource.model_blocks[1:]

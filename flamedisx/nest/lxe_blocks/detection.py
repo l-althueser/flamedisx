@@ -2,6 +2,8 @@ import typing as ty
 
 import numpy as np
 from scipy import stats
+import warnings
+
 import tensorflow as tf
 import tensorflow_probability as tfp
 
@@ -94,6 +96,30 @@ class DetectPhotonsOrElectrons(fd.Block):
                                    bounds_prob=self.source.bounds_prob, bound=bound,
                                    bound_type='binomial', supports=supports,
                                    rvs_binom=rvs, ns_binom=ns, ps_binom=ps)
+           
+        mincol = self.quanta_name + 's_produced_min'
+        maxcol = self.quanta_name + 's_produced_max'
+        if mincol in d.columns and maxcol in d.columns:
+            misordered = d[mincol].values > d[maxcol].values
+            if np.any(misordered):
+                bad_idx = np.where(misordered)[0]
+                import warnings
+                examples = []
+                for i in bad_idx[:10]:
+                    row = d.iloc[i]
+                    examples.append({
+                        'row': int(i),
+                        mincol: float(row.get(mincol, np.nan)),
+                        maxcol: float(row.get(maxcol, np.nan)),
+                        'energy': float(row.get('energy', np.nan))
+                    })
+                warnings.warn(
+                    f"DetectPhotonsOrElectrons._annotate: found {len(bad_idx)} misordered rows for "
+                    f"'{self.quanta_name}s_produced'. Swapping min/max for those rows. Examples: {examples}"
+                )
+                tmp = d.loc[bad_idx, mincol].copy()
+                d.loc[bad_idx, mincol] = d.loc[bad_idx, maxcol]
+                d.loc[bad_idx, maxcol] = tmp
 
     def _annotate_special(self, d):
         # Here we obtain improved bounds on photons and electrons detected with a non-flat prior

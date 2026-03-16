@@ -6,6 +6,8 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 import flamedisx as fd
+import flamedisx.bounds as bounds
+
 export, __all__ = fd.exporter()
 o = tf.newaxis
 
@@ -51,7 +53,7 @@ class MakeFinalSignals(fd.Block):
             rvs = [observed_signal * np.ones_like(support)
                    for observed_signal, support in zip(observed_signals, supports)]
 
-            fd.bounds.bayes_bounds(df=d, in_dim=self.signal_name + '_photoelectrons_detected',
+            bounds.bayes_bounds(df=d, in_dim=self.signal_name + '_photoelectrons_detected',
                                    bounds_prob=self.source.bounds_prob_outer, bound=bound,
                                    bound_type='normal', supports=supports,
                                    rvs_normal=rvs, mus_normal=mus, sigmas_normal=sigmas)

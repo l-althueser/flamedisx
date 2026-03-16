@@ -8,7 +8,6 @@ import flamedisx as fd
 
 export, __all__ = fd.exporter()
 
-
 ##
 # Electron probability
 ##
@@ -93,11 +92,26 @@ class SR0Source:
         if 's1' in d.columns:
             d['cs1'] = d['s1'] / d['s1_relative_ly']
         if 's2' in d.columns:
+            elife = self.defaults.get('elife', None)
+            try:
+                if elife is None:
+                    raise RuntimeError("elife default is not set")
+                # Tensor (tf.Tensor) -> .numpy()
+                if hasattr(elife, 'numpy'):
+                    elife = float(elife.numpy())
+                # TensorFlow dtype (z.B. tf.float32)
+                elif isinstance(elife, tf.DType):
+                    elife = float(elife.as_numpy_dtype(1.0))
+                # numpy / python scalar
+                else:
+                    elife = float(elife)
+            except Exception:
+                raise RuntimeError(f"Could not convert elife ({type(self.defaults.get('elife'))}) to float")
+
             d['cs2'] = (
                 d['s2']
                 / d['s2_relative_ly']
-                * np.exp(d['drift_time'] / self.defaults['elife']))
-
+                * np.exp(d['drift_time'] / elife))
     @staticmethod
     def electron_gain_mean(s2_relative_ly,
                            g2=11.4 / (1 - 0.63) / 0.96):

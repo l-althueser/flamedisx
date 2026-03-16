@@ -1,6 +1,8 @@
 from multihist import Histdd
 import numpy as np
 import pandas as pd
+import warnings
+
 import tensorflow as tf
 import wimprates as wr
 
@@ -75,6 +77,30 @@ class EnergySpectrum(fd.FirstBlock):
                                       & (res[:, electrons_produced] <= electrons_produced_max)
                                       & (res[:, photons_produced] >= photons_produced_min)
                                       & (res[:, photons_produced] <= photons_produced_max)]
+
+            if energies.size == 0:
+                warnings.warn(f"EnergySpectrum._annotate: empty filtered reservoir for batch {batch}; "
+                               "falling back to unfiltered reservoir energies.")
+                energies = res[:, energy]
+
+            if energies.size == 0:
+                warnings.warn(f"EnergySpectrum._annotate: reservoir empty for batch {batch}; "
+                            "falling back to data['energy'] or safe defaults.")
+                start = batch * self.source.batch_size
+                stop = (batch + 1) * self.source.batch_size - 1
+                if 'energy' in self.source.data.columns:
+                    fallback = self.source.data.loc[start:stop, 'energy'].values
+                    if fallback.size > 0:
+                        emin = np.quantile(fallback, self.source.bounds_prob)
+                        emax = np.quantile(fallback, 1. - self.source.bounds_prob)
+                    else:
+                        emin, emax = 0.0, 1e6
+                else:
+                    emin, emax = 0.0, 1e6
+
+                self.source.data.loc[start:stop, 'energy_min'] = emin
+                self.source.data.loc[start:stop, 'energy_max'] = emax
+                continue
 
             # We use this filtered reservoir to estimate energy bounds
             self.source.data.loc[batch * self.source.batch_size:
@@ -341,6 +367,7 @@ class InvalidEventTimes(Exception):
 
 @export
 class WIMPEnergySpectrum(VariableEnergySpectrum):
+    max_dim_size = {'energy': 50}
     model_attributes = ('pretend_wimps_dont_modulate',
                         'mw',
                         'sigma_nucleon',
